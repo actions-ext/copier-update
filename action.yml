@@ -23,7 +23,7 @@ runs:
     - run: |
         if [[ `git status --porcelain` ]]; then
           CURRENT_DATE=`date -u +"%Y-%m-%dT%H-%M-%S"`
-          MESSAGE="Update from copier (`date -u +"%Y-%m-%dT%H-%M-%S"`)"
+          MESSAGE="Update from copier (`date -u +"%Y-%m-%dT%H:%M:%S"`)"
           BRANCH=copier-update-$CURRENT_DATE
           git config --global user.name "github-actions"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
