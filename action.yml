@@ -1,0 +1,34 @@
+name: Copier Update
+description: 'Update copier-templated repo from upstream'
+
+inputs:
+  token:
+    type: string
+    description: "GitHub Token"
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - run: pip install copier
+      shell: bash
+    - run: copier update -A -f
+      shell: bash
+    - run: |
+        if [[ `git status --porcelain` ]]; then
+          CURRENT_DATE=`date -u +"%Y-%m-%dT%H-%M-%S"`
+          MESSAGE="Update from copier (`date -u +"%Y-%m-%dT%H-%M-%S"`)"
+          BRANCH=copier-update-$CURRENT_DATE
+          git checkout -b $BRANCH
+          git add .
+          git commit -m "$MESSAGE"
+          git push origin $BRANCH
+          gh pr create -B main -H $BRANCH --title "$MESSAGE"
+        fi
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
