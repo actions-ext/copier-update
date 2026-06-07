@@ -83,7 +83,7 @@ runs:
     - if: env.COPIER_CHANGED == 'true'
       run: |
         CURRENT_DATE=`date -u +"%Y-%m-%dT%H-%M-%S"`
-        MESSAGE="${{  inputs.title }} from copier (`date -u +"%Y-%m-%dT%H:%M:%S"`)"
+        MESSAGE="${{  inputs.title }} (`date -u +"%Y-%m-%dT%H:%M:%S"`)"
         BRANCH=${{  inputs.branch }}-$CURRENT_DATE
         git config --global user.name "github-actions"
         git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
