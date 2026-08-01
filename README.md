@@ -1,45 +1,45 @@
-# copier-update
+# Copier Update
 
-Action to update copier-templated repo from upstream
+GitHub App worker that updates Copier-managed repositories from their upstream templates. Install the app on repositories to receive weekly update pull
+requests; target repositories do not need a workflow, personal access token, or repository secret.
 
-> [!NOTE]
-> This action is deprecated in favor of [actions-ext/copier/update](https://github.com/actions-ext/copier)
+The previous composite action is deprecated. Workflow-based users should migrate to
+[`actions-ext/copier/update`](https://github.com/actions-ext/copier/tree/main/update).
 
-## Configuration
+## GitHub App configuration
 
-If you're using a GitHub organization, navigate to your organization's action settings (like `https://github.com/organizations/your-org-name-here/settings/actions`) and toggle `Read and write permissions` under `Workflow Permissions`.
+[Register a GitHub App](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/registering-a-github-app) with these repository
+permissions:
 
-Create a [personal access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) and store it in an [actions secret](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions). In the below example, we've named it `WORKFLOW_SECRET`.
+- **Contents:** Read and write
+- **Pull requests:** Read and write
+- **Workflows:** Read and write
+- **Metadata:** Read-only, granted automatically
 
-### Token Permissions
+Webhooks and user authorization are not required. Generate a private key, install the app on each repository that should receive updates, then configure
+this repository:
 
-**Classic PAT:** The token needs the `repo` scope (for private repositories) or `public_repo` scope (for public repositories), plus `workflow` scope. The `workflow` scope is required because copier-templated repos often include `.github/workflows/` files, which a token without `workflow` cannot push.
+```bash
+gh variable set COPIER_APP_ID --repo actions-ext/copier-update --body "APP_ID"
+gh secret set COPIER_APP_PRIVATE_KEY --repo actions-ext/copier-update < private-key.pem
+```
 
-**Fine-grained token:** The token needs the following repository permissions:
+The scheduled workflow runs every Sunday at 05:00 UTC. It discovers repositories through the app installations, skips repositories without a
+`.copier-answers.yaml` or `.copier-answers.yml` file, and skips repositories that already have an open `copier-update-*` pull request.
 
-- `Contents` — **Read and write** (to push the update branch)
-- `Pull requests` — **Read and write** (to create the PR)
-- `Workflows` — **Read and write** (to push `.github/workflows/` files)
-- `Metadata` — **Read** (automatically granted; needed to read repository info)
+To update one installed repository manually, run the `Update installed repositories` workflow with its `repository` input set to `owner/repository`.
 
-Now you can create a workflow like `.github/workflow/copier.yml`:
+## Security
 
-```yaml
-name: Copier Updates
+The app private key is used only to mint short-lived installation tokens and is removed from every target-repository subprocess environment. Git
+credentials are passed through temporary Git configuration rather than command arguments. Each update token is restricted to the repository being
+updated. Copier templates remain untrusted by default.
 
-on:
-  workflow_dispatch:
-  schedule:
-    - cron: "0 5 * * 0"
+## Development
 
-jobs:
-  update:
-    permissions:
-      contents: write
-      pull-requests: write
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions-ext/copier-update@main
-      with:
-        token: ${{ secrets.WORKFLOW_TOKEN }}
+```bash
+python -m pip install -e '.[develop]'
+ruff check .
+ruff format --check .
+pytest
 ```

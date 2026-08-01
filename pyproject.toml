@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "copier-update-app"
+version = "0.1.0"
+description = "GitHub App worker for updating Copier-managed repositories"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.11"
+dependencies = [
+    "copier>=9",
+    "PyJWT[crypto]>=2.10",
+    "requests>=2.32",
+]
+
+[project.optional-dependencies]
+develop = [
+    "pytest>=8",
+    "pytest-cov>=5",
+    "ruff>=0.12",
+]
+
+[project.scripts]
+copier-update-app = "copier_update_app.cli:main"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/copier_update_app",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["copier_update_app"]
+
+[tool.pytest.ini_options]
+addopts = ["-q"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 150
+
+[tool.ruff.lint]
+extend-select = ["I"]
