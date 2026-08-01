@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "copier-update",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-01",
+  "workers_dev": true,
+  "preview_urls": false,
+  "vars": {
+    "CONTROL_REPOSITORY": "actions-ext/copier-update",
+  },
+  "secrets": {
+    "required": [
+      "GITHUB_APP_ID",
+      "GITHUB_APP_PRIVATE_KEY",
+      "GITHUB_CLIENT_ID",
+      "GITHUB_CLIENT_SECRET",
+      "PUBLIC_URL",
+      "SESSION_SECRET",
+    ],
+  },
+}

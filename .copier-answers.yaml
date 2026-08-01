@@ -1,0 +1,12 @@
+# Changes here will be overwritten by Copier
+_commit: ccfa08c
+_src_path: gh:python-project-templates/base
+add_docs: false
+add_extension: python
+add_wiki: false
+email: 3105306+timkpaine@users.noreply.github.com
+github: actions-ext
+project_description: GitHub App for updating Copier-managed repositories
+project_name: copier update
+python_version_primary: '3.12'
+team: Tim Paine
