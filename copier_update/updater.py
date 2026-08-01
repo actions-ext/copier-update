@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from copier_update_app.github import GitHubAppClient, Repository
+from copier_update.github import GitHubAppClient, Repository
 
 LOGGER = logging.getLogger(__name__)
 

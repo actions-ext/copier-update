@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from copier_update_app.github import GitHubAppClient, Installation, Repository
+from copier_update.github import GitHubAppClient, Installation, Repository
 
 
 class FakeResponse:
@@ -36,7 +36,7 @@ def test_lists_installations_with_app_authentication(monkeypatch):
             ],
         )
     )
-    monkeypatch.setattr("copier_update_app.github.jwt.encode", lambda *args, **kwargs: "app-jwt")
+    monkeypatch.setattr("copier_update.github.jwt.encode", lambda *args, **kwargs: "app-jwt")
     client = GitHubAppClient("123", "private-key", session=session)
 
     assert client.installations() == [

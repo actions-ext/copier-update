@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from copier_update_app.github import Installation, Repository
-from copier_update_app.updater import Updater
+from copier_update.github import Installation, Repository
+from copier_update.updater import Updater
 
 
 class FakeClient:
@@ -157,7 +157,7 @@ def test_target_subprocess_does_not_inherit_app_private_key(monkeypatch):
 
     monkeypatch.setenv("COPIER_APP_ID", "123")
     monkeypatch.setenv("COPIER_APP_PRIVATE_KEY", "private")
-    monkeypatch.setattr("copier_update_app.updater.subprocess.run", fake_run)
+    monkeypatch.setattr("copier_update.updater.subprocess.run", fake_run)
     updater = Updater(FakeClient([]))
 
     updater._run(["git", "status"], token="installation-token")

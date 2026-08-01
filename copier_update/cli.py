@@ -4,8 +4,8 @@ import json
 import logging
 import os
 
-from copier_update_app.github import GitHubAppClient
-from copier_update_app.updater import Updater
+from copier_update.github import GitHubAppClient
+from copier_update.updater import Updater
 
 LOGGER = logging.getLogger(__name__)
 

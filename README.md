@@ -74,10 +74,11 @@ untrusted by default.
 ## Development
 
 ```bash
-python -m pip install -e '.[develop]'
-ruff check .
-ruff format --check .
-pytest
+make develop
+make lint
+make checks
+make coverage
+make build
 
 cd web
 npm ci
