@@ -3,7 +3,7 @@
   "name": "copier-update",
   "main": "src/index.ts",
   "compatibility_date": "2026-08-01",
-  "workers_dev": true,
+  "workers_dev": false,
   "preview_urls": false,
   "vars": {
     "CONTROL_REPOSITORY": "actions-ext/copier-update",
