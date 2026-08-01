@@ -6,3 +6,7 @@ ROADMAP.md
 .venv/
 __pycache__/
 coverage.xml
+web/.dev.vars
+web/coverage/
+web/dist/
+web/node_modules/

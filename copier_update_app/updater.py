@@ -37,25 +37,45 @@ class Updater:
         *,
         branch_prefix: str = "copier-update",
         repository_filter: str | None = None,
+        repository_filters: set[str] | None = None,
+        owner_filter: str | None = None,
+        visibility_filter: str | None = None,
         now: Callable[[], datetime] | None = None,
     ) -> None:
+        if repository_filter and repository_filters:
+            raise ValueError("Use repository_filter or repository_filters, not both")
+        if visibility_filter not in (None, "public", "private"):
+            raise ValueError("visibility_filter must be public or private")
         self.client = client
         self.branch_prefix = branch_prefix
-        self.repository_filter = repository_filter
+        self.repository_filters = {
+            repository.casefold() for repository in (repository_filters or ({repository_filter} if repository_filter else set()))
+        }
+        self.owner_filter = owner_filter.casefold() if owner_filter else None
+        self.visibility_filter = visibility_filter
         self.now = now or (lambda: datetime.now(UTC))
 
     def run(self) -> UpdateSummary:
         summary = UpdateSummary()
-        matched_filter = False
-        for installation_id in self.client.installation_ids():
-            installation_token = self.client.installation_token(installation_id)
+        matched_owner = False
+        matched_repositories: set[str] = set()
+        for installation in self.client.installations():
+            if self.owner_filter and installation.account_login.casefold() != self.owner_filter:
+                continue
+            matched_owner = True
+            installation_token = self.client.installation_token(installation.id)
             for repository in self.client.repositories(installation_token):
-                if self.repository_filter and repository.full_name.casefold() != self.repository_filter.casefold():
+                repository_name = repository.full_name.casefold()
+                if self.repository_filters and repository_name not in self.repository_filters:
                     continue
-                matched_filter = True
+                if self.visibility_filter == "public" and repository.private:
+                    continue
+                if self.visibility_filter == "private" and not repository.private:
+                    continue
+                matched_repositories.add(repository_name)
                 summary.checked += 1
                 try:
-                    result = self._consider_repository(installation_id, repository, installation_token)
+                    result = self._consider_repository(installation.id, repository, installation_token)
                 except Exception:
                     summary.failed += 1
                     LOGGER.exception("Failed to update %s", repository.full_name)
@@ -65,8 +85,12 @@ class Updater:
                     else:
                         summary.skipped += 1
 
-        if self.repository_filter and not matched_filter:
-            raise RuntimeError(f"Repository {self.repository_filter!r} is not available to this app")
+        if self.owner_filter and not matched_owner:
+            raise RuntimeError(f"Account {self.owner_filter!r} is not available to this app")
+        missing_repositories = self.repository_filters - matched_repositories
+        if missing_repositories:
+            missing = ", ".join(sorted(missing_repositories))
+            raise RuntimeError(f"Repositories are not available to this app: {missing}")
         return summary
 
     def _consider_repository(self, installation_id: int, repository: Repository, installation_token: str) -> bool:

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from copier_update_app.github import Repository
+from copier_update_app.github import Installation, Repository
 from copier_update_app.updater import Updater
 
 
@@ -18,8 +18,8 @@ class FakeClient:
         self.pull_requests: list[tuple[str, str, str]] = []
         self.token_requests: list[tuple[int, int | None]] = []
 
-    def installation_ids(self) -> list[int]:
-        return [10]
+    def installations(self) -> list[Installation]:
+        return [Installation(id=10, account_login="owner", account_type="Organization")]
 
     def installation_token(self, installation_id: int, repository_id: int | None = None) -> str:
         self.token_requests.append((installation_id, repository_id))
@@ -111,6 +111,39 @@ def test_repository_filter_must_match_installation():
     updater = RecordingUpdater(FakeClient([]), repository_filter="owner/missing")
 
     with pytest.raises(RuntimeError, match="not available"):
+        updater.run()
+
+
+def test_filters_owner_visibility_and_selected_repositories():
+    public = Repository(id=1, full_name="owner/public", default_branch="main")
+    private = Repository(id=2, full_name="owner/private", default_branch="main", private=True)
+    updater = RecordingUpdater(
+        FakeClient([public, private]),
+        owner_filter="OWNER",
+        visibility_filter="private",
+    )
+
+    summary = updater.run()
+
+    assert (summary.checked, summary.updated) == (1, 1)
+    assert [repository for repository, _, _ in updater.updated] == ["owner/private"]
+
+
+def test_selected_repositories_must_all_match_installation():
+    repository = Repository(id=1, full_name="owner/available", default_branch="main")
+    updater = RecordingUpdater(
+        FakeClient([repository]),
+        repository_filters={"owner/available", "owner/missing"},
+    )
+
+    with pytest.raises(RuntimeError, match="owner/missing"):
+        updater.run()
+
+
+def test_owner_filter_must_match_installation():
+    updater = RecordingUpdater(FakeClient([]), owner_filter="missing")
+
+    with pytest.raises(RuntimeError, match="Account 'missing' is not available"):
         updater.run()
 
 

@@ -43,3 +43,15 @@ jobs:
 
       - name: Test
         run: pytest
+
+      - name: Install control-plane dependencies
+        run: npm ci
+        working-directory: web
+
+      - name: Check control plane
+        run: |
+          npm run check
+          npm run format:check
+          npm test
+          npm run build
+        working-directory: web

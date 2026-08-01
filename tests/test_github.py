@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from copier_update_app.github import GitHubAppClient, Repository
+from copier_update_app.github import GitHubAppClient, Installation, Repository
 
 
 class FakeResponse:
@@ -27,11 +27,22 @@ class FakeSession:
 
 
 def test_lists_installations_with_app_authentication(monkeypatch):
-    session = FakeSession(FakeResponse(200, [{"id": 12}, {"id": 34}]))
+    session = FakeSession(
+        FakeResponse(
+            200,
+            [
+                {"id": 12, "account": {"login": "example", "type": "Organization"}},
+                {"id": 34, "account": {"login": "octocat", "type": "User"}},
+            ],
+        )
+    )
     monkeypatch.setattr("copier_update_app.github.jwt.encode", lambda *args, **kwargs: "app-jwt")
     client = GitHubAppClient("123", "private-key", session=session)
 
-    assert client.installation_ids() == [12, 34]
+    assert client.installations() == [
+        Installation(id=12, account_login="example", account_type="Organization"),
+        Installation(id=34, account_login="octocat", account_type="User"),
+    ]
     _, url, kwargs = session.requests[0]
     assert url == "https://api.github.com/app/installations"
     assert kwargs["headers"]["Authorization"] == "Bearer app-jwt"
@@ -44,7 +55,7 @@ def test_lists_installation_repositories():
             200,
             {
                 "repositories": [
-                    {"id": 1, "full_name": "owner/active", "default_branch": "trunk"},
+                    {"id": 1, "full_name": "owner/active", "default_branch": "trunk", "private": True},
                     {"id": 2, "full_name": "owner/archived", "default_branch": "main", "archived": True},
                 ]
             },
@@ -53,7 +64,7 @@ def test_lists_installation_repositories():
     client = GitHubAppClient("123", "private-key", session=session)
 
     assert client.repositories("installation-token") == [
-        Repository(id=1, full_name="owner/active", default_branch="trunk"),
+        Repository(id=1, full_name="owner/active", default_branch="trunk", private=True),
         Repository(id=2, full_name="owner/archived", default_branch="main", archived=True),
     ]
     assert session.requests[0][2]["headers"]["Authorization"] == "Bearer installation-token"

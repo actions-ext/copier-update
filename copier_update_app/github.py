@@ -18,8 +18,16 @@ class Repository:
     id: int
     full_name: str
     default_branch: str
+    private: bool = False
     archived: bool = False
     disabled: bool = False
+
+
+@dataclass(frozen=True)
+class Installation:
+    id: int
+    account_login: str
+    account_type: str
 
 
 class GitHubAppClient:
@@ -36,10 +44,17 @@ class GitHubAppClient:
         self.api_url = api_url.rstrip("/")
         self.session = session or requests.Session()
 
-    def installation_ids(self) -> list[int]:
-        installations: list[int] = []
+    def installations(self) -> list[Installation]:
+        installations: list[Installation] = []
         for item in self._paginate("/app/installations"):
-            installations.append(int(item["id"]))
+            account = item["account"]
+            installations.append(
+                Installation(
+                    id=int(item["id"]),
+                    account_login=str(account["login"]),
+                    account_type=str(account["type"]),
+                )
+            )
         return installations
 
     def installation_token(self, installation_id: int, repository_id: int | None = None) -> str:
@@ -56,6 +71,7 @@ class GitHubAppClient:
                 id=int(item["id"]),
                 full_name=str(item["full_name"]),
                 default_branch=str(item.get("default_branch") or "main"),
+                private=bool(item.get("private", False)),
                 archived=bool(item.get("archived", False)),
                 disabled=bool(item.get("disabled", False)),
             )
