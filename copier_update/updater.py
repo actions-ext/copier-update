@@ -130,6 +130,11 @@ class Updater:
                 token=token,
             )
             self._run(["copier", "update", "-A", "-f", "-a", answers_file], cwd=repository_path, token=token)
+            try:
+                self._run(["git", "diff", "--check"], cwd=repository_path, capture_output=True)
+            except subprocess.CalledProcessError as error:
+                details = (error.stdout or error.stderr or "").strip()
+                raise RuntimeError(f"Copier produced invalid changes for {repository.full_name}:\n{details}") from error
 
             if not self._has_meaningful_changes(repository_path):
                 LOGGER.info("No update available for %s", repository.full_name)
