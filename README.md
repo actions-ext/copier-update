@@ -3,8 +3,8 @@
 GitHub App worker that updates Copier-managed repositories from their upstream templates. Install the app on repositories to receive weekly update pull
 requests; target repositories do not need a workflow, personal access token, or repository secret.
 
-The previous composite action is deprecated. Workflow-based users should migrate to
-[`actions-ext/copier/update`](https://github.com/actions-ext/copier/tree/main/update).
+The previous composite action is deprecated but remains available temporarily for compatibility. Workflow-based users should migrate to
+[`actions-ext/copier/update`](https://github.com/actions-ext/copier/tree/main/update); repositories using the app can remove their Copier update workflow.
 
 ## GitHub App configuration
 
