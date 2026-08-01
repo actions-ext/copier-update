@@ -54,16 +54,19 @@ class RecordingUpdater(Updater):
 
 
 class CommandRecordingUpdater(Updater):
-    def __init__(self, client: FakeClient, *, status: str) -> None:
+    def __init__(self, client: FakeClient, *, status: str, invalid_diff: str = "") -> None:
         super().__init__(client, now=lambda: datetime(2026, 8, 1, 12, 34, 56, tzinfo=UTC))
         self.commands: list[tuple[list[str], str | None]] = []
         self.status = status
+        self.invalid_diff = invalid_diff
 
     def _run(self, command, *, cwd=None, token=None, capture_output=False):
         command = list(command)
         self.commands.append((command, token))
         if command[:2] == ["git", "clone"]:
             Path(command[-1]).mkdir()
+        if command == ["git", "diff", "--check"] and self.invalid_diff:
+            raise subprocess.CalledProcessError(2, command, output=self.invalid_diff)
         stdout = self.status if command[:3] == ["git", "status", "--porcelain"] else ""
         return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr="")
 
@@ -194,4 +197,20 @@ def test_repository_update_stops_when_copier_changes_only_ignored_files():
 
     assert not updater.update_repository(repository, ".copier-answers.yaml", "repository-token")
     assert not any(command[:2] == ["git", "commit"] for command, _ in updater.commands)
+    assert client.pull_requests == []
+
+
+def test_repository_update_stops_when_copier_leaves_conflicts():
+    repository = Repository(id=20, full_name="owner/repository", default_branch="main")
+    client = FakeClient([repository])
+    updater = CommandRecordingUpdater(
+        client,
+        status=" M README.md\n",
+        invalid_diff="README.md:1: leftover conflict marker\n",
+    )
+
+    with pytest.raises(RuntimeError, match="Copier produced invalid changes"):
+        updater.update_repository(repository, ".copier-answers.yaml", "repository-token")
+
+    assert not any(command[:2] == ["git", "push"] for command, _ in updater.commands)
     assert client.pull_requests == []
