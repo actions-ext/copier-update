@@ -29,8 +29,8 @@ personal account or organization that should receive updates. Installation owner
 
 ## Cloudflare configuration
 
-The `1kbgz/terraform` repository's `copier-update/` root provisions Worker metadata and enables its `workers.dev` URL. Use a separate account-scoped
-Cloudflare API token with **Workers Scripts: Write**; do not broaden or reuse a DNS token.
+The `1kbgz/terraform` repository's `copier-update/` root provisions Worker metadata and `updates.python-templates.dev`. Use a separate account-scoped
+Cloudflare API token with **Workers Scripts: Write**; do not reuse the Crowdsource token.
 
 After applying Terraform, configure this repository:
 
@@ -38,7 +38,7 @@ After applying Terraform, configure this repository:
 gh variable set CLOUDFLARE_ACCOUNT_ID --repo actions-ext/copier-update --body "ACCOUNT_ID"
 gh variable set COPIER_APP_CLIENT_ID --repo actions-ext/copier-update --body "CLIENT_ID"
 gh variable set COPIER_APP_ID --repo actions-ext/copier-update --body "APP_ID"
-gh variable set COPIER_UPDATE_PUBLIC_URL --repo actions-ext/copier-update --body "https://copier-update.ACCOUNT_SUBDOMAIN.workers.dev"
+gh variable set COPIER_UPDATE_PUBLIC_URL --repo actions-ext/copier-update --body "https://updates.python-templates.dev"
 
 gh secret set CLOUDFLARE_TEMPLATES_API_TOKEN --repo actions-ext/copier-update
 gh secret set COPIER_APP_CLIENT_SECRET --repo actions-ext/copier-update
