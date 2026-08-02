@@ -30,6 +30,10 @@ class UpdateSummary:
     failed: int = 0
 
 
+class InvalidUpdateError(RuntimeError):
+    """Raised after opening an update pull request containing invalid changes."""
+
+
 class Updater:
     def __init__(
         self,
@@ -76,6 +80,10 @@ class Updater:
                 summary.checked += 1
                 try:
                     result = self._consider_repository(installation.id, repository, installation_token)
+                except InvalidUpdateError as error:
+                    summary.updated += 1
+                    summary.failed += 1
+                    LOGGER.error("%s", error)
                 except Exception:
                     summary.failed += 1
                     LOGGER.exception("Failed to update %s", repository.full_name)
@@ -94,6 +102,9 @@ class Updater:
         return summary
 
     def _consider_repository(self, installation_id: int, repository: Repository, installation_token: str) -> bool:
+        if repository.fork:
+            LOGGER.info("Skipping fork %s", repository.full_name)
+            return False
         if repository.archived or repository.disabled:
             LOGGER.info("Skipping inactive repository %s", repository.full_name)
             return False
@@ -130,11 +141,11 @@ class Updater:
                 token=token,
             )
             self._run(["copier", "update", "-A", "-f", "-a", answers_file], cwd=repository_path, token=token)
+            invalid_changes = ""
             try:
                 self._run(["git", "diff", "--check"], cwd=repository_path, capture_output=True)
             except subprocess.CalledProcessError as error:
-                details = (error.stdout or error.stderr or "").strip()
-                raise RuntimeError(f"Copier produced invalid changes for {repository.full_name}:\n{details}") from error
+                invalid_changes = (error.stdout or error.stderr or "").strip()
 
             if not self._has_meaningful_changes(repository_path):
                 LOGGER.info("No update available for %s", repository.full_name)
@@ -148,8 +159,16 @@ class Updater:
             self._run(["git", "commit", "-s", "-m", title], cwd=repository_path)
             self._run(["git", "push", "origin", branch], cwd=repository_path, token=token)
 
-        pull_request_url = self.client.create_pull_request(repository, token, branch, title)
+        pull_request_url = self.client.create_pull_request(
+            repository,
+            token,
+            branch,
+            title,
+            invalid=bool(invalid_changes),
+        )
         LOGGER.info("Opened %s", pull_request_url)
+        if invalid_changes:
+            raise InvalidUpdateError(f"Opened {pull_request_url} with changes that fail git diff --check:\n{invalid_changes}")
         return True
 
     def _has_meaningful_changes(self, repository_path: Path) -> bool:
@@ -190,9 +209,13 @@ class Updater:
             credentials = base64.b64encode(f"x-access-token:{token}".encode()).decode()
             environment.update(
                 {
-                    "GIT_CONFIG_COUNT": "1",
+                    "GIT_CONFIG_COUNT": "3",
                     "GIT_CONFIG_KEY_0": "http.https://github.com/.extraheader",
                     "GIT_CONFIG_VALUE_0": f"Authorization: Basic {credentials}",
+                    "GIT_CONFIG_KEY_1": "url.https://github.com/.insteadOf",
+                    "GIT_CONFIG_VALUE_1": "git@github.com:",
+                    "GIT_CONFIG_KEY_2": "url.https://github.com/.insteadOf",
+                    "GIT_CONFIG_VALUE_2": "ssh://git@github.com/",
                 }
             )
         return subprocess.run(
