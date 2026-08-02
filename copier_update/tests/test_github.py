@@ -56,7 +56,7 @@ def test_lists_installation_repositories():
             {
                 "repositories": [
                     {"id": 1, "full_name": "owner/active", "default_branch": "trunk", "private": True},
-                    {"id": 2, "full_name": "owner/archived", "default_branch": "main", "archived": True},
+                    {"id": 2, "full_name": "owner/archived", "default_branch": "main", "fork": True, "archived": True},
                 ]
             },
         )
@@ -65,7 +65,7 @@ def test_lists_installation_repositories():
 
     assert client.repositories("installation-token") == [
         Repository(id=1, full_name="owner/active", default_branch="trunk", private=True),
-        Repository(id=2, full_name="owner/archived", default_branch="main", archived=True),
+        Repository(id=2, full_name="owner/archived", default_branch="main", fork=True, archived=True),
     ]
     assert session.requests[0][2]["headers"]["Authorization"] == "Bearer installation-token"
 
@@ -92,3 +92,14 @@ def test_detects_open_update_pull_request():
     client = GitHubAppClient("123", "private-key", session=session)
 
     assert client.has_open_update(repository, "token", "copier-update")
+
+
+def test_marks_invalid_update_pull_request():
+    repository = Repository(id=1, full_name="owner/repository", default_branch="main")
+    session = FakeSession(FakeResponse(201, {"html_url": "https://github.com/owner/repository/pull/1"}))
+    client = GitHubAppClient("123", "private-key", session=session)
+
+    url = client.create_pull_request(repository, "token", "copier-update", "Update from Copier", invalid=True)
+
+    assert url == "https://github.com/owner/repository/pull/1"
+    assert "fail `git diff --check`" in session.requests[0][2]["json"]["body"]

@@ -15,7 +15,7 @@ class FakeClient:
         self._repositories = repositories
         self.answers = {repository.full_name: ".copier-answers.yaml" for repository in repositories}
         self.open_updates: set[str] = set()
-        self.pull_requests: list[tuple[str, str, str]] = []
+        self.pull_requests: list[tuple[str, str, str, bool]] = []
         self.token_requests: list[tuple[int, int | None]] = []
 
     def installations(self) -> list[Installation]:
@@ -35,8 +35,16 @@ class FakeClient:
     def has_open_update(self, repository: Repository, token: str, branch_prefix: str) -> bool:
         return repository.full_name in self.open_updates
 
-    def create_pull_request(self, repository: Repository, token: str, branch: str, title: str) -> str:
-        self.pull_requests.append((repository.full_name, branch, title))
+    def create_pull_request(
+        self,
+        repository: Repository,
+        token: str,
+        branch: str,
+        title: str,
+        *,
+        invalid: bool = False,
+    ) -> str:
+        self.pull_requests.append((repository.full_name, branch, title, invalid))
         return f"https://github.com/{repository.full_name}/pull/1"
 
 
@@ -85,16 +93,17 @@ def test_updates_eligible_repository_with_restricted_token():
 
 def test_skips_inactive_unmanaged_and_open_repositories():
     archived = Repository(id=1, full_name="owner/archived", default_branch="main", archived=True)
-    unmanaged = Repository(id=2, full_name="owner/unmanaged", default_branch="main")
-    open_update = Repository(id=3, full_name="owner/open", default_branch="main")
-    client = FakeClient([archived, unmanaged, open_update])
+    fork = Repository(id=2, full_name="owner/fork", default_branch="main", fork=True)
+    unmanaged = Repository(id=3, full_name="owner/unmanaged", default_branch="main")
+    open_update = Repository(id=4, full_name="owner/open", default_branch="main")
+    client = FakeClient([archived, fork, unmanaged, open_update])
     client.answers.pop(unmanaged.full_name)
     client.open_updates.add(open_update.full_name)
     updater = RecordingUpdater(client)
 
     summary = updater.run()
 
-    assert (summary.checked, summary.updated, summary.skipped, summary.failed) == (3, 0, 3, 0)
+    assert (summary.checked, summary.updated, summary.skipped, summary.failed) == (4, 0, 4, 0)
     assert updater.updated == []
     assert client.token_requests == [(10, None)]
 
@@ -108,6 +117,21 @@ def test_continues_after_repository_failure():
 
     assert (summary.checked, summary.updated, summary.skipped, summary.failed) == (2, 1, 0, 1)
     assert updater.updated[0][0] == second.full_name
+
+
+def test_counts_conflicted_pull_request_as_updated_and_failed():
+    repository = Repository(id=1, full_name="owner/repository", default_branch="main")
+    client = FakeClient([repository])
+    updater = CommandRecordingUpdater(
+        client,
+        status=" M README.md\n",
+        invalid_diff="README.md:1: leftover conflict marker\n",
+    )
+
+    summary = updater.run()
+
+    assert (summary.checked, summary.updated, summary.skipped, summary.failed) == (1, 1, 0, 1)
+    assert client.pull_requests[0][-1] is True
 
 
 def test_repository_filter_must_match_installation():
@@ -170,6 +194,11 @@ def test_target_subprocess_does_not_inherit_app_private_key(monkeypatch):
     assert "COPIER_APP_ID" not in captured["environment"]
     assert "COPIER_APP_PRIVATE_KEY" not in captured["environment"]
     assert captured["environment"]["GIT_CONFIG_VALUE_0"].startswith("Authorization: Basic ")
+    assert captured["environment"]["GIT_CONFIG_COUNT"] == "3"
+    assert captured["environment"]["GIT_CONFIG_KEY_1"] == "url.https://github.com/.insteadOf"
+    assert captured["environment"]["GIT_CONFIG_VALUE_1"] == "git@github.com:"
+    assert captured["environment"]["GIT_CONFIG_KEY_2"] == "url.https://github.com/.insteadOf"
+    assert captured["environment"]["GIT_CONFIG_VALUE_2"] == "ssh://git@github.com/"
 
 
 def test_repository_update_runs_copier_and_opens_pull_request():
@@ -186,6 +215,7 @@ def test_repository_update_runs_copier_and_opens_pull_request():
             "owner/repository",
             "copier-update-2026-08-01T12-34-56Z",
             "Update from Copier (2026-08-01T12-34-56Z)",
+            False,
         )
     ]
 
@@ -200,7 +230,7 @@ def test_repository_update_stops_when_copier_changes_only_ignored_files():
     assert client.pull_requests == []
 
 
-def test_repository_update_stops_when_copier_leaves_conflicts():
+def test_repository_update_opens_pull_request_when_copier_leaves_conflicts():
     repository = Repository(id=20, full_name="owner/repository", default_branch="main")
     client = FakeClient([repository])
     updater = CommandRecordingUpdater(
@@ -209,8 +239,15 @@ def test_repository_update_stops_when_copier_leaves_conflicts():
         invalid_diff="README.md:1: leftover conflict marker\n",
     )
 
-    with pytest.raises(RuntimeError, match="Copier produced invalid changes"):
+    with pytest.raises(RuntimeError, match="Opened .* with changes that fail git diff --check"):
         updater.update_repository(repository, ".copier-answers.yaml", "repository-token")
 
-    assert not any(command[:2] == ["git", "push"] for command, _ in updater.commands)
-    assert client.pull_requests == []
+    assert any(command[:2] == ["git", "push"] for command, _ in updater.commands)
+    assert client.pull_requests == [
+        (
+            "owner/repository",
+            "copier-update-2026-08-01T12-34-56Z",
+            "Update from Copier (2026-08-01T12-34-56Z)",
+            True,
+        )
+    ]

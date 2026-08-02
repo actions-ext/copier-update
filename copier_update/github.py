@@ -19,6 +19,7 @@ class Repository:
     full_name: str
     default_branch: str
     private: bool = False
+    fork: bool = False
     archived: bool = False
     disabled: bool = False
 
@@ -72,6 +73,7 @@ class GitHubAppClient:
                 full_name=str(item["full_name"]),
                 default_branch=str(item.get("default_branch") or "main"),
                 private=bool(item.get("private", False)),
+                fork=bool(item.get("fork", False)),
                 archived=bool(item.get("archived", False)),
                 disabled=bool(item.get("disabled", False)),
             )
@@ -99,14 +101,25 @@ class GitHubAppClient:
                 return True
         return False
 
-    def create_pull_request(self, repository: Repository, token: str, branch: str, title: str) -> str:
+    def create_pull_request(
+        self,
+        repository: Repository,
+        token: str,
+        branch: str,
+        title: str,
+        *,
+        invalid: bool = False,
+    ) -> str:
+        body = "Automated update from the repository's Copier template."
+        if invalid:
+            body += "\n\n> [!WARNING]\n> Copier generated changes that fail `git diff --check`. Review them before merging."
         response = self._request(
             "POST",
             f"/repos/{repository.full_name}/pulls",
             token=token,
             json={
                 "base": repository.default_branch,
-                "body": "Automated update from the repository's Copier template.",
+                "body": body,
                 "head": branch,
                 "title": title,
             },
