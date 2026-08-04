@@ -4,6 +4,10 @@ GitHub App that updates Copier-managed repositories from their upstream template
 requests or request updates by account, visibility, or selected repository from its Cloudflare Worker control plane. Target repositories do not need a
 workflow, personal access token, or repository secret.
 
+[Website](https://updates.python-templates.dev) · [Install](https://github.com/apps/python-templates-copier-update/installations/new) ·
+[Support](https://updates.python-templates.dev/support) · [Privacy](https://updates.python-templates.dev/privacy) ·
+[Marketplace assets](docs/img)
+
 The previous composite action is deprecated but remains available temporarily for compatibility. Workflow-based users should migrate to
 [`actions-ext/copier/update`](https://github.com/actions-ext/copier/tree/main/update); repositories using the app can remove their Copier update workflow.
 
@@ -21,8 +25,10 @@ Grant **Members: Read-only** under organization permissions so the control plane
 
 - Homepage URL: the Worker `PUBLIC_URL`
 - Callback URL: `PUBLIC_URL/oauth/callback`
-- Webhooks: disabled
+- Repository webhooks: disabled
 - Where this GitHub App can be installed: any account
+
+The Marketplace listing uses `PUBLIC_URL/marketplace-webhook` separately for signed purchase and cancellation events.
 
 Generate a private key and client secret. Install the app on `actions-ext/copier-update` so it can dispatch the central worker, then install it on each
 personal account or organization that should receive updates. Installation owners can grant all or selected repositories.
@@ -43,10 +49,14 @@ gh variable set COPIER_UPDATE_PUBLIC_URL --repo actions-ext/copier-update --body
 gh secret set CLOUDFLARE_TEMPLATES_API_TOKEN --repo actions-ext/copier-update
 gh secret set COPIER_APP_CLIENT_SECRET --repo actions-ext/copier-update
 gh secret set COPIER_APP_PRIVATE_KEY --repo actions-ext/copier-update < private-key.pem
+copier_marketplace_webhook_secret="$(openssl rand -base64 32)"
+gh secret set COPIER_MARKETPLACE_WEBHOOK_SECRET --repo actions-ext/copier-update --body "$copier_marketplace_webhook_secret"
 openssl rand -base64 32 | gh secret set COPIER_UPDATE_SESSION_SECRET --repo actions-ext/copier-update
 
 gh workflow run deploy.yaml --repo actions-ext/copier-update
 ```
+
+Use `$copier_marketplace_webhook_secret` as the draft Marketplace listing's webhook secret.
 
 The deployment workflow sends runtime credentials to Cloudflare as encrypted Worker secrets. They are not stored in Terraform state.
 

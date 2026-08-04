@@ -43,6 +43,7 @@ jobs:
           secrets: |
             GITHUB_APP_PRIVATE_KEY
             GITHUB_CLIENT_SECRET
+            MARKETPLACE_WEBHOOK_SECRET
             SESSION_SECRET
           vars: |
             GITHUB_APP_ID
@@ -55,5 +56,6 @@ jobs:
           GITHUB_APP_PRIVATE_KEY: ${{ secrets.COPIER_APP_PRIVATE_KEY }}
           GITHUB_CLIENT_ID: ${{ vars.COPIER_APP_CLIENT_ID }}
           GITHUB_CLIENT_SECRET: ${{ secrets.COPIER_APP_CLIENT_SECRET }}
+          MARKETPLACE_WEBHOOK_SECRET: ${{ secrets.COPIER_MARKETPLACE_WEBHOOK_SECRET }}
           PUBLIC_URL: ${{ vars.COPIER_UPDATE_PUBLIC_URL }}
           SESSION_SECRET: ${{ secrets.COPIER_UPDATE_SESSION_SECRET }}

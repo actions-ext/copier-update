@@ -1,4 +1,4 @@
-import { generateKeyPairSync } from "node:crypto";
+import { createHmac, generateKeyPairSync } from "node:crypto";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -17,6 +17,7 @@ const env: Env = {
   GITHUB_APP_PRIVATE_KEY: privateKey,
   GITHUB_CLIENT_ID: "client-id",
   GITHUB_CLIENT_SECRET: "client-secret",
+  MARKETPLACE_WEBHOOK_SECRET: "marketplace-secret",
   PUBLIC_URL: "https://copier-update.example.workers.dev/",
   SESSION_SECRET: "session-secret",
 };
@@ -36,6 +37,44 @@ async function authenticatedRequest(scope = "selected"): Promise<Request> {
 }
 
 afterEach(() => vi.unstubAllGlobals());
+
+describe("public pages", () => {
+  it.each([
+    ["/", "Template updates, delivered as pull requests"],
+    ["/support", "Get help with Copier Update"],
+    ["/privacy", "Privacy policy"],
+  ])("serves %s", async (path, expected) => {
+    const response = await handleRequest(new Request(new URL(path, env.PUBLIC_URL)), env);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toBe("text/html; charset=utf-8");
+    expect(await response.text()).toContain(expected);
+  });
+
+  it("acknowledges signed Marketplace events", async () => {
+    const body = JSON.stringify({ action: "purchased" });
+    const signature = `sha256=${createHmac("sha256", env.MARKETPLACE_WEBHOOK_SECRET).update(body).digest("hex")}`;
+    const response = await handleRequest(
+      new Request(`${env.PUBLIC_URL}marketplace-webhook`, {
+        method: "POST",
+        headers: { "X-GitHub-Event": "marketplace_purchase", "X-Hub-Signature-256": signature },
+        body,
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(202);
+  });
+
+  it("rejects unsigned Marketplace events", async () => {
+    const response = await handleRequest(
+      new Request(`${env.PUBLIC_URL}marketplace-webhook`, { method: "POST", body: "{}" }),
+      env,
+    );
+
+    expect(response.status).toBe(401);
+  });
+});
 
 describe("update requests", () => {
   it("verifies an organization owner and dispatches an installation-scoped request", async () => {

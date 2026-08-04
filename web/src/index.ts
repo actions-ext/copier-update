@@ -9,7 +9,9 @@ import {
   type Repository,
   user,
 } from "./github";
+import { landingPage, privacyPage, publicLayout, styles, supportPage } from "./pages";
 import { clearCookie, cookie, randomValue, seal, setCookie, sha256, unseal } from "./session";
+import { verifyWebhook } from "./webhook";
 
 export interface Env {
   CONTROL_REPOSITORY: string;
@@ -17,6 +19,7 @@ export interface Env {
   GITHUB_APP_PRIVATE_KEY: string;
   GITHUB_CLIENT_ID: string;
   GITHUB_CLIENT_SECRET: string;
+  MARKETPLACE_WEBHOOK_SECRET: string;
   PUBLIC_URL: string;
   SESSION_SECRET: string;
 }
@@ -55,7 +58,7 @@ function escapeHtml(value: string): string {
 
 function page(title: string, content: string, status = 200, headers: HeadersInit = {}): Response {
   return new Response(
-    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(title)}</title><style>body{font:16px system-ui,sans-serif;max-width:64rem;margin:3rem auto;padding:0 1rem;color:#202124}header{display:flex;justify-content:space-between;align-items:center}section{border:1px solid #ddd;border-radius:.5rem;padding:1rem;margin:1rem 0}label{display:block;margin:.5rem 0}button,.button{background:#24292f;color:white;border:0;border-radius:.4rem;padding:.65rem 1rem;text-decoration:none;cursor:pointer}select{padding:.4rem}details{margin:1rem 0}.muted{color:#656d76}.error{color:#b42318}</style></head><body>${content}</body></html>`,
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(title)}</title><style>${styles}</style></head><body><div class="shell"><main>${content}</main></div></body></html>`,
     {
       status,
       headers: {
@@ -161,10 +164,7 @@ function installationForm(item: Installation, items: Repository[], csrf: string)
 async function dashboard(request: Request, env: Env): Promise<Response> {
   const activeSession = await session(request, env);
   if (!activeSession) {
-    return page(
-      "Copier Update",
-      '<h1>Copier Update</h1><p>Open Copier update pull requests for repositories where the GitHub App is installed.</p><p><a class="button" href="/login">Sign in with GitHub</a></p>',
-    );
+    return landingPage();
   }
   const [viewer, availableInstallations] = await Promise.all([
     user(activeSession.token),
@@ -177,8 +177,19 @@ async function dashboard(request: Request, env: Env): Promise<Response> {
   );
   return page(
     "Copier Update",
-    `<header><div><h1>Copier Update</h1><p class="muted">Signed in as ${escapeHtml(viewer.login)}</p></div><form method="post" action="/logout"><input type="hidden" name="csrf" value="${escapeHtml(activeSession.csrf)}"><button type="submit">Sign out</button></form></header>${cards.join("") || "<p>No App installations are available.</p>"}`,
+    `<header class="dashboard"><div><h1>Copier Update</h1><p class="muted">Signed in as ${escapeHtml(viewer.login)}</p></div><form method="post" action="/logout"><input type="hidden" name="csrf" value="${escapeHtml(activeSession.csrf)}"><button type="submit">Sign out</button></form></header>${cards.join("") || "<p>No App installations are available.</p>"}`,
   );
+}
+
+async function marketplaceWebhook(request: Request, env: Env): Promise<Response> {
+  const body = await request.text();
+  if (!(await verifyWebhook(body, request.headers.get("X-Hub-Signature-256"), env.MARKETPLACE_WEBHOOK_SECRET))) {
+    return new Response("Invalid signature", { status: 401 });
+  }
+  if (request.headers.get("X-GitHub-Event") === "ping") {
+    return Response.json({ status: "ok" });
+  }
+  return new Response(null, { status: 202 });
 }
 
 async function authorizeInstallation(token: string, viewer: GitHubUser, item: Installation): Promise<void> {
@@ -267,12 +278,22 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
   const { pathname } = new URL(request.url);
   try {
     if (request.method === "GET" && pathname === "/") return await dashboard(request, env);
+    if (request.method === "GET" && pathname === "/support") return supportPage();
+    if (request.method === "GET" && pathname === "/privacy") return privacyPage();
     if (request.method === "GET" && pathname === "/login") return await login(env);
     if (request.method === "GET" && pathname === "/oauth/callback") return await oauthCallback(request, env);
     if (request.method === "POST" && pathname === "/run") return await runUpdate(request, env);
     if (request.method === "POST" && pathname === "/logout") return await logout(request, env);
+    if (request.method === "POST" && pathname === "/marketplace-webhook") {
+      return await marketplaceWebhook(request, env);
+    }
     if (request.method === "GET" && pathname === "/healthz") return Response.json({ status: "ok" });
-    return page("Not found", "<h1>Not found</h1>", 404);
+    return publicLayout(
+      "Not found — Copier Update",
+      "Page not found.",
+      '<article class="content"><h1>Not found</h1></article>',
+      404,
+    );
   } catch (error) {
     if (error instanceof UserError) {
       return page(
