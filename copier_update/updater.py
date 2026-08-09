@@ -152,8 +152,8 @@ class Updater:
                 return False
 
             self._refresh_lockfiles(repository_path)
-            self._run(["git", "config", "user.name", "copier-update[bot]"], cwd=repository_path)
-            self._run(["git", "config", "user.email", "copier-update[bot]@users.noreply.github.com"], cwd=repository_path)
+            self._run(["git", "config", "user.name", "python-templates-copier-update[bot]"], cwd=repository_path)
+            self._run(["git", "config", "user.email", "python-templates-copier-update[bot]@users.noreply.github.com"], cwd=repository_path)
             self._run(["git", "checkout", "-b", branch], cwd=repository_path)
             self._run(["git", "add", "--all"], cwd=repository_path)
             self._run(["git", "commit", "-s", "-m", title], cwd=repository_path)
