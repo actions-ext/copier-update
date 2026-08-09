@@ -25,17 +25,7 @@ permissions:
 
 jobs:
   build:
-<<<<<<< before updating
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        node-version: [22.x]
-        python-version: ["3.12"]
-=======
     runs-on: ubuntu-latest
->>>>>>> after updating
 
     steps:
       - name: Checkout
