@@ -47,7 +47,7 @@ runs:
       shell: bash
 
     - if: env.COPIER_CHANGED == 'true' && hashFiles('pnpm-lock.yaml') != ''
-      uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       with:
         version: 9
       continue-on-error: true
@@ -56,7 +56,7 @@ runs:
       shell: bash
       continue-on-error: true
     - if: env.COPIER_CHANGED == 'true' && hashFiles('js/pnpm-lock.yaml') != ''
-      uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       with:
         version: 9
         package_json_file: js/package.json
@@ -67,7 +67,7 @@ runs:
       continue-on-error: true
 
     - if: env.COPIER_CHANGED == 'true' && hashFiles('Cargo.lock', 'rust/Cargo.lock') != ''
-      uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # latest
+      uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # latest
       with:
         toolchain: stable
       continue-on-error: true
