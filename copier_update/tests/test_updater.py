@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from copier_update.github import GitHubAppClient, Installation, Repository
-from copier_update.updater import Updater
+from copier_update.updater import InvalidUpdateError, Updater
 
 
 class FakeClient(GitHubAppClient):
@@ -73,7 +73,7 @@ class CommandRecordingUpdater(Updater):
         self.commands.append((command, token))
         if command[:2] == ["git", "clone"]:
             Path(command[-1]).mkdir()
-        if command == ["git", "diff", "--check"] and self.invalid_diff:
+        if command[-3:] == ["diff", "--cached", "--check"] and self.invalid_diff:
             raise subprocess.CalledProcessError(2, command, output=self.invalid_diff)
         stdout = self.status if command[:3] == ["git", "status", "--porcelain"] else ""
         return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr="")
@@ -239,7 +239,7 @@ def test_repository_update_opens_pull_request_when_copier_leaves_conflicts():
         invalid_diff="README.md:1: leftover conflict marker\n",
     )
 
-    with pytest.raises(RuntimeError, match="Opened .* with changes that fail git diff --check"):
+    with pytest.raises(RuntimeError, match="Opened .* with unresolved conflict markers"):
         updater.update_repository(repository, ".copier-answers.yaml", "repository-token")
 
     assert any(command[:2] == ["git", "push"] for command, _ in updater.commands)
@@ -251,3 +251,54 @@ def test_repository_update_opens_pull_request_when_copier_leaves_conflicts():
             True,
         )
     ]
+
+
+@pytest.mark.parametrize(
+    "contents,conflicted",
+    [
+        ("Updated text\n", False),
+        ("Updated text \n\n", False),
+        (" \tUpdated text\n", False),
+        ("<<<<<<< before\nOld text\n=======\nNew text\n>>>>>>> after\n", True),
+    ],
+    ids=["clean", "trailing-whitespace", "space-before-tab", "conflict-markers"],
+)
+@pytest.mark.parametrize("new_file", [False, True], ids=["modified-file", "new-file"])
+def test_repository_update_detects_only_conflicts_with_real_git(tmp_path, monkeypatch, contents, conflicted, new_file):
+    source = tmp_path / "source"
+    source.mkdir()
+    subprocess.run(["git", "init", "--initial-branch=main", str(source)], check=True, capture_output=True)
+    (source / "README.md").write_text("Original text\n")
+    subprocess.run(["git", "add", "."], cwd=source, check=True)
+    subprocess.run(
+        ["git", "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "Initial commit"],
+        cwd=source,
+        check=True,
+        capture_output=True,
+    )
+    repository = Repository(id=20, full_name="owner/repository", default_branch="main")
+    client = FakeClient([repository])
+    updater = Updater(client)
+    run = updater._run
+
+    def run_locally(command, *, cwd=None, token=None, capture_output=False):
+        command = list(command)
+        if command[:2] == ["git", "clone"]:
+            command[-2] = str(source)
+        elif command[0] == "copier":
+            assert cwd is not None
+            (cwd / ("new.md" if new_file else "README.md")).write_text(contents)
+            return subprocess.CompletedProcess(command, 0)
+        elif command[:2] == ["git", "push"]:
+            return subprocess.CompletedProcess(command, 0)
+        return run(command, cwd=cwd, capture_output=capture_output)
+
+    monkeypatch.setattr(updater, "_run", run_locally)
+
+    if conflicted:
+        with pytest.raises(InvalidUpdateError):
+            updater.update_repository(repository, ".copier-answers.yaml", "token")
+    else:
+        assert updater.update_repository(repository, ".copier-answers.yaml", "token")
+
+    assert client.pull_requests[0][-1] is conflicted

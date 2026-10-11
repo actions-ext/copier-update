@@ -31,7 +31,7 @@ class UpdateSummary:
 
 
 class InvalidUpdateError(RuntimeError):
-    """Raised after opening an update pull request containing invalid changes."""
+    """Raised after opening an update pull request containing conflict markers."""
 
 
 class Updater:
@@ -141,12 +141,6 @@ class Updater:
                 token=token,
             )
             self._run(["copier", "update", "-A", "-f", "-a", answers_file], cwd=repository_path, token=token)
-            invalid_changes = ""
-            try:
-                self._run(["git", "diff", "--check"], cwd=repository_path, capture_output=True)
-            except subprocess.CalledProcessError as error:
-                invalid_changes = (error.stdout or error.stderr or "").strip()
-
             if not self._has_meaningful_changes(repository_path):
                 LOGGER.info("No update available for %s", repository.full_name)
                 return False
@@ -156,6 +150,17 @@ class Updater:
             self._run(["git", "config", "user.email", "python-templates-copier-update[bot]@users.noreply.github.com"], cwd=repository_path)
             self._run(["git", "checkout", "-b", branch], cwd=repository_path)
             self._run(["git", "add", "--all"], cwd=repository_path)
+            invalid_changes = ""
+            try:
+                self._run(
+                    ["git", "-c", "core.whitespace=-trailing-space,-space-before-tab", "diff", "--cached", "--check"],
+                    cwd=repository_path,
+                    capture_output=True,
+                )
+            except subprocess.CalledProcessError as error:
+                if error.returncode != 2:
+                    raise
+                invalid_changes = (error.stdout or error.stderr or "").strip()
             self._run(["git", "commit", "-s", "-m", title], cwd=repository_path)
             self._run(["git", "push", "origin", branch], cwd=repository_path, token=token)
 
@@ -168,7 +173,7 @@ class Updater:
         )
         LOGGER.info("Opened %s", pull_request_url)
         if invalid_changes:
-            raise InvalidUpdateError(f"Opened {pull_request_url} with changes that fail git diff --check:\n{invalid_changes}")
+            raise InvalidUpdateError(f"Opened {pull_request_url} with unresolved conflict markers:\n{invalid_changes}")
         return True
 
     def _has_meaningful_changes(self, repository_path: Path) -> bool:

@@ -105,4 +105,4 @@ def test_marks_invalid_update_pull_request():
     url = client.create_pull_request(repository, "token", "copier-update", "Update from Copier", invalid=True)
 
     assert url == "https://github.com/owner/repository/pull/1"
-    assert "fail `git diff --check`" in session.requests[0][2]["json"]["body"]
+    assert "Copier left unresolved conflict markers" in session.requests[0][2]["json"]["body"]

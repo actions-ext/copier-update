@@ -112,7 +112,7 @@ class GitHubAppClient:
     ) -> str:
         body = "Automated update from the repository's Copier template."
         if invalid:
-            body += "\n\n> [!WARNING]\n> Copier generated changes that fail `git diff --check`. Review them before merging."
+            body += "\n\n> [!WARNING]\n> Copier left unresolved conflict markers. Resolve them before merging."
         response = self._request(
             "POST",
             f"/repos/{repository.full_name}/pulls",
