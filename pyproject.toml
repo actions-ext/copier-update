@@ -41,6 +41,7 @@ develop = [
     "codespell",
     "hatchling",
     "mdformat",
+    "mdformat-frontmatter",
     "mdformat-tables>=1",
     "pytest",
     "pytest-cov",
@@ -77,7 +78,7 @@ replace = 'version = "{new_version}"'
 [tool.coverage.run]
 branch = true
 omit = [
-    "copier_update/tests/integration/",
+    "copier_update/tests/integration/*",
 ]
 
 [tool.coverage.report]

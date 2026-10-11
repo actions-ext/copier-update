@@ -6,11 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from copier_update.github import Installation, Repository
+from copier_update.github import GitHubAppClient, Installation, Repository
 from copier_update.updater import Updater
 
 
-class FakeClient:
+class FakeClient(GitHubAppClient):
     def __init__(self, repositories: list[Repository]) -> None:
         self._repositories = repositories
         self.answers = {repository.full_name: ".copier-answers.yaml" for repository in repositories}
