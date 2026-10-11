@@ -2,26 +2,29 @@ from __future__ import annotations
 
 from typing import Any
 
+from requests import Response, Session
+
 from copier_update.github import GitHubAppClient, Installation, Repository
 
 
-class FakeResponse:
+class FakeResponse(Response):
     def __init__(self, status_code: int, data: Any) -> None:
+        super().__init__()
         self.status_code = status_code
         self.data = data
-        self.ok = 200 <= status_code < 300
-        self.text = str(data)
+        self._content = str(data).encode()
 
-    def json(self) -> Any:
+    def json(self, **kwargs: Any) -> Any:
         return self.data
 
 
-class FakeSession:
+class FakeSession(Session):
     def __init__(self, *responses: FakeResponse) -> None:
+        super().__init__()
         self.responses = list(responses)
-        self.requests: list[tuple[str, str, dict[str, Any]]] = []
+        self.requests: list[tuple[str, str | bytes, dict[str, Any]]] = []
 
-    def request(self, method: str, url: str, **kwargs: Any) -> FakeResponse:
+    def request(self, method: str, url: str | bytes, *args: Any, **kwargs: Any) -> FakeResponse:
         self.requests.append((method, url, kwargs))
         return self.responses.pop(0)
 
