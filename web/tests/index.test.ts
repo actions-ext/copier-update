@@ -40,7 +40,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe("public pages", () => {
   it.each([
-    ["/", "Template updates, delivered as pull requests"],
+    ["/", "Update your repositories from Copier templates"],
     ["/support", "Get help with Copier Update"],
     ["/privacy", "Privacy policy"],
   ])("serves %s", async (path, expected) => {
