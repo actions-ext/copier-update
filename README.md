@@ -1,8 +1,8 @@
 # Copier Update
 
-GitHub App that updates Copier-managed repositories from their upstream templates. Install the app on repositories to receive weekly update pull
-requests or request updates by account, visibility, or selected repository from its Cloudflare Worker control plane. Target repositories do not need a
-workflow, personal access token, or repository secret.
+Copier Update is a GitHub App that checks your repositories for changes to their Copier templates each week and opens pull requests when updates are
+available. You can also sign in to the website to request updates for an account, public or private repositories, or selected repositories. Your
+repositories do not need an update workflow, personal access token, or repository secret.
 
 [Website](https://updates.python-templates.dev) · [Install](https://github.com/apps/python-templates-copier-update/installations/new) ·
 [Support](https://updates.python-templates.dev/support) · [Privacy](https://updates.python-templates.dev/privacy) ·
@@ -21,7 +21,7 @@ permissions:
 - **Workflows:** Read and write
 - **Metadata:** Read-only, granted automatically
 
-Grant **Members: Read-only** under organization permissions so the control plane can verify organization owners. Configure:
+Grant **Members: Read-only** under organization permissions so the app can verify that someone requesting an update is an organization owner. Configure:
 
 - Homepage URL: the Worker `PUBLIC_URL`
 - Callback URL: `PUBLIC_URL/oauth/callback`
@@ -30,12 +30,12 @@ Grant **Members: Read-only** under organization permissions so the control plane
 
 The Marketplace listing uses `PUBLIC_URL/marketplace-webhook` separately for signed purchase and cancellation events.
 
-Generate a private key and client secret. Install the app on `actions-ext/copier-update` so it can dispatch the central worker, then install it on each
+Generate a private key and client secret. Install the app on `actions-ext/copier-update` so it can start update jobs, then install it on each
 personal account or organization that should receive updates. Installation owners can grant all or selected repositories.
 
 ## Cloudflare configuration
 
-The `1kbgz/terraform` repository's `copier-update/` root provisions Worker metadata and `updates.python-templates.dev`. Use a separate account-scoped
+The `copier-update/` configuration in `1kbgz/terraform` provisions Worker metadata and `updates.python-templates.dev`. Use a separate account-scoped
 Cloudflare API token with **Workers Scripts: Write**; do not reuse the Crowdsource token.
 
 After applying Terraform, configure this repository:
@@ -65,21 +65,21 @@ The deployment workflow sends runtime credentials to Cloudflare as encrypted Wor
 The scheduled workflow runs every Sunday at 05:00 UTC across every installation. It skips repositories without a `.copier-answers.yaml` or
 `.copier-answers.yml` file and repositories that already have an open `copier-update-*` pull request.
 
-After signing in to the control plane, personal account owners and organization owners can request updates for:
+After signing in to the website, personal account owners and organization owners can request updates for:
 
 - every installed repository in an account
 - all public or all private installed repositories in an account
 - one or more selected installed repositories
 
-Repository maintainers with access to this control repository can also run the `Update installed repositories` workflow directly with its `repository`
+Maintainers with access to `actions-ext/copier-update` can also run the `Update installed repositories` workflow directly with its `repository`
 input set to `owner/repository`.
 
 ## Security
 
-The control plane uses GitHub OAuth with PKCE, encrypted `HttpOnly` sessions, CSRF tokens, and a fresh owner check for each request. It restricts its
-dispatch token to `actions-ext/copier-update`. The central worker removes the app private key from every target-repository subprocess, passes Git
-credentials through temporary configuration rather than command arguments, and restricts each update token to one repository. Copier templates remain
-untrusted by default.
+The website uses GitHub OAuth with PKCE, encrypted `HttpOnly` sessions, and CSRF tokens. It checks account ownership for each update request and uses a
+token restricted to `actions-ext/copier-update` to start the update job. The update job removes the app private key from every target-repository
+subprocess, passes Git credentials through temporary configuration rather than command arguments, and restricts each update token to one repository.
+Copier templates are untrusted by default.
 
 ## Development
 
